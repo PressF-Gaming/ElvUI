@@ -3,7 +3,8 @@ local UF = E:GetModule('UnitFrames')
 local LSM = E.Libs.LSM
 local ElvUF = E.oUF
 
-local unpack, tonumber, abs = unpack, tonumber, abs
+local abs, next = abs, next
+local unpack, tonumber = unpack, tonumber
 
 local CreateFrame = CreateFrame
 local GetTalentInfo = GetTalentInfo
@@ -26,7 +27,8 @@ do
 
 	local pipMapAlpha = {2, 3, 4, 1}
 	function UF:UpdatePipStep(stage) -- self is element
-		local pip = self.Pips[pipMapAlpha[stage]]
+		local onlyThree = (stage == 3 and self.numStages == 3) and 4
+		local pip = self.Pips[pipMapAlpha[onlyThree or stage]]
 		if not pip then return end
 
 		pip.texture:SetAlpha(1)

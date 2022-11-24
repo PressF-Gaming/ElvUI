@@ -531,16 +531,11 @@ function S:Blizzard_Communities()
 
 	-- Notification Settings Dialog
 	local NotificationSettings = _G.CommunitiesFrame.NotificationSettingsDialog
-	NotificationSettings:StripTextures()
-	NotificationSettings:SetTemplate('Transparent')
-
-	S:HandleDropDownBox(CommunitiesFrame.NotificationSettingsDialog.CommunitiesListDropDownMenu)
-	S:HandleCheckBox(CommunitiesFrame.NotificationSettingsDialog.ScrollFrame.Child.QuickJoinButton)
-	S:HandleButton(CommunitiesFrame.NotificationSettingsDialog.ScrollFrame.Child.AllButton)
-	S:HandleButton(CommunitiesFrame.NotificationSettingsDialog.ScrollFrame.Child.NoneButton)
-	S:HandleButton(CommunitiesFrame.NotificationSettingsDialog.OkayButton)
-	S:HandleButton(CommunitiesFrame.NotificationSettingsDialog.CancelButton)
-	S:HandleScrollBar(CommunitiesFrame.NotificationSettingsDialog.ScrollFrame.ScrollBar)
+	S:HandleDropDownBox(NotificationSettings.CommunitiesListDropDownMenu)
+	S:HandleCheckBox(NotificationSettings.ScrollFrame.Child.QuickJoinButton)
+	S:HandleButton(NotificationSettings.ScrollFrame.Child.AllButton)
+	S:HandleButton(NotificationSettings.ScrollFrame.Child.NoneButton)
+	S:HandleScrollBar(NotificationSettings.ScrollFrame.ScrollBar)
 
 	-- Create Channel Dialog
 	local EditStreamDialog = CommunitiesFrame.EditStreamDialog
@@ -574,11 +569,12 @@ function S:Blizzard_Communities()
 
 	-- Avatar Picker
 	local Avatar = _G.CommunitiesAvatarPickerDialog
-	Avatar:StripTextures()
+	Avatar.Selector:StripTextures()
 	Avatar:SetTemplate('Transparent')
 
-	S:HandleButton(Avatar.OkayButton)
-	S:HandleButton(Avatar.CancelButton)
+	S:HandleTrimScrollBar(Avatar.ScrollBar)
+	S:HandleButton(Avatar.Selector.OkayButton)
+	S:HandleButton(Avatar.Selector.CancelButton)
 
 	-- Invite Frame
 	local TicketManager = _G.CommunitiesTicketManagerDialog
