@@ -134,13 +134,7 @@ function M:HandleExpansionButton()
 	end
 end
 
-function M:HandleQueueButton(actionbarMode)
-	local queueButton = M:GetQueueStatusButton()
-	if not queueButton then return end
-
-	queueButton:SetParent(_G.MinimapBackdrop)
-	queueButton:ClearAllPoints()
-
+function M:HandleQueueButton()
 	local queueDisplay = M.QueueStatusDisplay
 	if queueDisplay then
 		local db = E.db.general.minimap.icons.queueStatus
@@ -154,12 +148,15 @@ function M:HandleQueueButton(actionbarMode)
 		end
 	end
 
-	if actionbarMode then
-		queueButton:Point('BOTTOMLEFT', Minimap, E.Retail and 50 or 10, E.Retail and -15 or -10)
-		M:SetScale(queueButton, E.Retail and 0.8 or 1)
-	else
+	local queueButton = M:GetQueueStatusButton()
+	if queueButton then
+		queueButton:SetParent(Minimap)
+		queueButton:SetFrameLevel(_G.MinimapBackdrop:GetFrameLevel() + 2)
+
 		local scale, position, xOffset, yOffset = M:GetIconSettings('lfgEye')
+		queueButton:ClearAllPoints()
 		queueButton:Point(position, Minimap, xOffset, yOffset)
+
 		M:SetScale(queueButton, scale)
 	end
 end
@@ -354,6 +351,10 @@ function M:GetQueueStatusButton()
 end
 
 function M:UpdateSettings()
+	if M.Initialized or E.private.actionbar.enable then
+		M:HandleQueueButton()
+	end
+
 	if not M.Initialized then return end
 
 	local noCluster = not E.Retail or E.db.general.minimap.clusterDisable
@@ -367,27 +368,15 @@ function M:UpdateSettings()
 		M.NeedsCanvasUpdate = E.MinimapSize
 	end
 
-	local panel, holder = _G.MinimapPanel, M.holder
+	local panel, holder = _G.MinimapPanel, M.MapHolder
 	panel:SetShown(E.db.datatexts.panels.MinimapPanel.enable)
 	M:SetScale(panel, 1)
 
 	local mmOffset = E.PixelMode and 1 or 3
 	local mmScale = E.db.general.minimap.scale
 	Minimap:ClearAllPoints()
-	Minimap:Point('TOPRIGHT', holder, 'TOPRIGHT', -mmOffset/mmScale, -mmOffset/mmScale)
-	Minimap:Size(E.MinimapSize, E.MinimapSize)
-
-	if E.Retail then
-		MinimapCluster:SetScale(mmScale)
-
-		local mcWidth = MinimapCluster:GetWidth()
-		local height, width = 20 * mmScale, (mcWidth - 30) * mmScale
-		M.ClusterHolder:SetSize(width, height)
-		M.ClusterBackdrop:SetSize(width, height)
-		M.ClusterBackdrop:SetShown(E.db.general.minimap.clusterBackdrop and not noCluster)
-	else
-		Minimap:SetScale(mmScale)
-	end
+	Minimap:Point('TOPRIGHT', holder, -mmOffset/mmScale, -mmOffset/mmScale)
+	Minimap:Size(E.MinimapSize)
 
 	local mWidth, mHeight = Minimap:GetSize()
 	local bWidth, bHeight = E:Scale(E.PixelMode and 2 or 6), E:Scale(E.PixelMode and 2 or 8)
@@ -405,7 +394,18 @@ function M:UpdateSettings()
 	_G.MiniMapMailIcon:SetTexture(E.Media.MailIcons[E.db.general.minimap.icons.mail.texture] or E.Media.MailIcons.Mail3)
 	_G.MiniMapMailIcon:Size(20)
 
-	if E.Retail then
+	if not E.Retail then
+		Minimap:SetScale(mmScale)
+	else
+		MinimapCluster:SetScale(mmScale)
+
+		local mcWidth = MinimapCluster:GetWidth()
+		local height, width = 20 * mmScale, (mcWidth - 30) * mmScale
+		M.ClusterHolder:SetSize(width, height)
+		M.ClusterBackdrop:SetSize(width, height)
+		M.ClusterBackdrop:SetShown(E.db.general.minimap.clusterBackdrop and not noCluster)
+
+		-- elements
 		_G.MinimapZoneText:FontTemplate(locationFont, locaitonSize, locationOutline)
 		_G.TimeManagerClockTicker:FontTemplate(LSM:Fetch('font', E.db.general.minimap.timeFont), E.db.general.minimap.timeFontSize, E.db.general.minimap.timeFontOutline)
 
@@ -423,8 +423,6 @@ function M:UpdateSettings()
 			_G.TimeManagerClockButton:Show()
 		end
 	end
-
-	M:HandleQueueButton()
 
 	local difficulty = E.Retail and MinimapCluster.InstanceDifficulty
 	local instance = difficulty and difficulty.Instance or _G.MiniMapInstanceDifficulty
@@ -458,7 +456,8 @@ function M:UpdateSettings()
 				local scale, position, xOffset, yOffset = M:GetIconSettings('calendar')
 				gameTime:ClearAllPoints()
 				gameTime:Point(position, Minimap, xOffset, yOffset)
-				gameTime:SetParent(_G.MinimapBackdrop)
+				gameTime:SetParent(Minimap)
+				gameTime:SetFrameLevel(_G.MinimapBackdrop:GetFrameLevel() + 2)
 				gameTime:Show()
 
 				M:SetScale(gameTime, scale)
@@ -605,11 +604,11 @@ end
 
 function M:ClusterPoint(_, anchor)
 	local noCluster = not E.Retail or E.db.general.minimap.clusterDisable
-	local holder = (noCluster and _G.UIParent) or M.ClusterHolder
+	local frame = (noCluster and _G.UIParent) or M.ClusterHolder
 
-	if anchor ~= holder then
+	if anchor ~= frame then
 		MinimapCluster:ClearAllPoints()
-		MinimapCluster:Point('TOPRIGHT', holder, 0, noCluster and 0 or 1)
+		MinimapCluster:Point('TOPRIGHT', frame, 0, noCluster and 0 or 1)
 	end
 end
 
@@ -620,7 +619,7 @@ function M:Initialize()
 		Minimap:SetMaskTexture(E.Retail and 186178 or [[textures\minimapmask]])
 
 		if E.private.actionbar.enable then
-			M:HandleQueueButton(true)
+			M:HandleQueueButton()
 		end
 
 		return
@@ -630,18 +629,45 @@ function M:Initialize()
 
 	menuFrame:SetTemplate('Transparent')
 
-	local holder = CreateFrame('Frame', 'ElvUI_MinimapHolder', Minimap)
-	holder:Point('TOPRIGHT', E.UIParent, 'TOPRIGHT', -3, -3)
-	holder:Size(Minimap:GetSize())
-	M.holder = holder
-	E:CreateMover(holder, 'MinimapMover', L["Minimap"], nil, nil, MinimapPostDrag, nil, nil, 'maps,minimap')
+	local mapHolder = CreateFrame('Frame', 'ElvUI_MinimapHolder', Minimap)
+	mapHolder:Point('TOPRIGHT', E.UIParent, -3, -3)
+	mapHolder:Size(Minimap:GetSize())
+	E:CreateMover(mapHolder, 'MinimapMover', L["Minimap"], nil, nil, MinimapPostDrag, nil, nil, 'maps,minimap')
+	M.MapHolder = mapHolder
+	M:SetScale(mapHolder, 1)
 
-	if E.Retail then -- set before minimap itself
-		MinimapCluster:SetFrameLevel(20)
+	if E.Retail then
+		MinimapCluster:KillEditMode()
+
+		local clusterHolder = CreateFrame('Frame', 'ElvUI_MinimapClusterHolder', MinimapCluster)
+		clusterHolder:Point('TOPRIGHT', E.UIParent, -3, -3)
+		clusterHolder:Size(MinimapCluster:GetSize())
+		E:CreateMover(clusterHolder, 'MinimapClusterMover', L["Minimap Cluster"], nil, nil, nil, nil, nil, 'maps,minimap')
+		M.ClusterHolder = clusterHolder
+
+		local clusterBackdrop = CreateFrame('Frame', 'ElvUI_MinimapClusterBackdrop', MinimapCluster)
+		clusterBackdrop:Point('TOPRIGHT', 0, -1)
+		clusterBackdrop:SetTemplate()
+		M:SetScale(clusterBackdrop, 1)
+		M.ClusterBackdrop = clusterBackdrop
+
+		--Hide the BlopRing on Minimap
+		Minimap:SetArchBlobRingAlpha(0)
+		Minimap:SetArchBlobRingScalar(0)
+		Minimap:SetQuestBlobRingAlpha(0)
+		Minimap:SetQuestBlobRingScalar(0)
+
+		_G.QueueStatusFrame:SetClampedToScreen(true)
 	end
 
-	Minimap:SetFrameStrata('LOW')
+	M:ClusterPoint()
+	MinimapCluster:EnableMouse(false)
+	MinimapCluster:SetFrameLevel(20) -- set before minimap itself
+	hooksecurefunc(MinimapCluster, 'SetPoint', M.ClusterPoint)
+
+	Minimap:EnableMouseWheel(true)
 	Minimap:SetFrameLevel(10)
+	Minimap:SetFrameStrata('LOW')
 	Minimap:CreateBackdrop()
 
 	if Minimap.backdrop then -- level to hybrid maps fixed values
@@ -650,33 +676,19 @@ function M:Initialize()
 		M:SetScale(Minimap.backdrop, 1)
 	end
 
-	if E.Retail then
-		local clusterHolder = CreateFrame('Frame', 'ElvUI_MinimapClusterHolder', MinimapCluster)
-		clusterHolder:Point('TOPRIGHT', E.UIParent, 'TOPRIGHT', -3, -3)
-		clusterHolder:Size(MinimapCluster:GetSize())
-
-		M.ClusterHolder = clusterHolder
-		E:CreateMover(clusterHolder, 'MinimapClusterMover', L["Minimap Cluster"], nil, nil, nil, nil, nil, 'maps,minimap')
-
-		local clusterBackdrop = CreateFrame('Frame', 'ElvUI_MinimapClusterBackdrop', MinimapCluster)
-		clusterBackdrop:Point('TOPRIGHT', 0, -1)
-		clusterBackdrop:SetTemplate()
-		M:SetScale(clusterBackdrop, 1)
-		M.ClusterBackdrop = clusterBackdrop
-	end
-
-	M:ClusterPoint()
-	hooksecurefunc(MinimapCluster, 'SetPoint', M.ClusterPoint)
+	Minimap:SetScript('OnMouseWheel', M.Minimap_OnMouseWheel)
+	Minimap:SetScript('OnMouseDown', M.Minimap_OnMouseDown)
+	Minimap:SetScript('OnMouseUp', E.noop)
 
 	Minimap:HookScript('OnEnter', function(mm) if E.db.general.minimap.locationText == 'MOUSEOVER' and (not E.Retail or E.db.general.minimap.clusterDisable) then mm.location:Show() end end)
 	Minimap:HookScript('OnLeave', function(mm) if E.db.general.minimap.locationText == 'MOUSEOVER' and (not E.Retail or E.db.general.minimap.clusterDisable) then mm.location:Hide() end end)
 
 	Minimap.location = Minimap:CreateFontString(nil, 'OVERLAY')
-	Minimap.location:Point('TOP', Minimap, 'TOP', 0, -2)
+	Minimap.location:Point('TOP', Minimap, 0, -2)
 	Minimap.location:SetJustifyH('CENTER')
 	Minimap.location:SetJustifyV('MIDDLE')
-	M:SetScale(Minimap.location, 1)
 	Minimap.location:Hide() -- Fixes blizzard's font rendering issue, keep after M:SetScale
+	M:SetScale(Minimap.location, 1)
 
 	M:RegisterEvent('PLAYER_ENTERING_WORLD', 'Update_ZoneText')
 	M:RegisterEvent('ZONE_CHANGED_NEW_AREA', 'Update_ZoneText')
@@ -702,6 +714,24 @@ function M:Initialize()
 
 		MinimapCluster.BorderTop:StripTextures()
 		MinimapCluster.Tracking.Background:StripTextures()
+
+		if _G.GarrisonLandingPageMinimapButton_UpdateIcon then
+			hooksecurefunc('GarrisonLandingPageMinimapButton_UpdateIcon', M.HandleExpansionButton)
+		else
+			hooksecurefunc(_G.ExpansionLandingPageMinimapButton, 'UpdateIcon', M.HandleExpansionButton)
+		end
+
+		if E.private.general.minimap.hideClassHallReport then
+			local garrison = _G.ExpansionLandingPageMinimapButton or _G.GarrisonLandingPageMinimapButton
+			garrison:Kill()
+			garrison.IsShown = function() return true end
+		end
+	end
+
+	if E.Classic then
+		hooksecurefunc('SetLookingForGroupUIAvailable', M.HandleTrackingButton)
+	else --Create the new minimap tracking dropdown frame and initialize it
+		M.TrackingDropdown = M:CreateMinimapTrackingDropdown()
 	end
 
 	if _G.TimeManagerClockButton then
@@ -716,46 +746,11 @@ function M:Initialize()
 		M:SetupHybridMinimap()
 	end
 
-	if E.Retail then
-		if _G.GarrisonLandingPageMinimapButton_UpdateIcon then
-			hooksecurefunc('GarrisonLandingPageMinimapButton_UpdateIcon', M.HandleExpansionButton)
-		else
-			hooksecurefunc(_G.ExpansionLandingPageMinimapButton, 'UpdateIcon', M.HandleExpansionButton)
-		end
-
-		--Hide the BlopRing on Minimap
-		Minimap:SetArchBlobRingAlpha(0)
-		Minimap:SetArchBlobRingScalar(0)
-		Minimap:SetQuestBlobRingAlpha(0)
-		Minimap:SetQuestBlobRingScalar(0)
-
-		if E.private.general.minimap.hideClassHallReport then
-			local garrison = _G.ExpansionLandingPageMinimapButton or _G.GarrisonLandingPageMinimapButton
-			garrison:Kill()
-			garrison.IsShown = function() return true end
-		end
-
-		_G.QueueStatusFrame:SetClampedToScreen(true)
-	elseif E.Classic then
-		hooksecurefunc('SetLookingForGroupUIAvailable', M.HandleTrackingButton)
-	end
-
-	if not E.Classic then
-		--Create the new minimap tracking dropdown frame and initialize it
-		M.TrackingDropdown = M:CreateMinimapTrackingDropdown()
-	end
-
 	if _G.QueueStatusButton then
 		M:CreateQueueStatusText()
 	elseif _G.MiniMapLFGFrame then
 		(E.Wrath and _G.MiniMapLFGFrameBorder or _G.MiniMapLFGBorder):Hide()
 	end
-
-	MinimapCluster:EnableMouse(false)
-	Minimap:EnableMouseWheel(true)
-	Minimap:SetScript('OnMouseWheel', M.Minimap_OnMouseWheel)
-	Minimap:SetScript('OnMouseDown', M.Minimap_OnMouseDown)
-	Minimap:SetScript('OnMouseUp', E.noop)
 
 	M:RegisterEvent('ADDON_LOADED')
 	M:UpdateSettings()
